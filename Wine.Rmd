@@ -1,0 +1,72 @@
+---
+title: "Wine analysis"
+output: html_notebook
+---
+# The problem
+
+The present problme refers to the data of portuguese wines "Vinho Verde" (Green Wine), which 
+have white and red variants. Due to privacy issues, only the physical-chemical  (input) 
+and sensory (output) variables are available ( for instance, there is no data about which kind of grape,
+brand of wine, price of sale, etc).
+
+##Objetive:
+
+###Create a model to estimate the wine quality.
+
+Info about attributesL
+
+*Input* variables (based on physical-chemical tests):
+
+1. Kind
+2. Fixed acidicy
+3. Volatile acidity
+4. Citric Acid
+5. Residual sugar
+6. Clorides
+7. Free Sulphor Dioxide
+8. Total Sulphor Dioxide
+9. Density
+10. pH
+11. Sulphates
+12. Alcohol
+
+*Output* variable (based on sensory data):
+
+13. Quality (score between 0 and 10)
+##Quick literature review
+
+First step taken is to do a quick bibliography review about the subject in order to reproduce previously conducted research and
+improve upon it.
+
+##Google Search
+
+###First Review
+at "30/11/2018 21:00 GMT -3, daylight saving" :
+
+   * All input variables were added to the search, which returned one match to this [link](https://pubag.nal.usda.gov/pubag/downloadPDF.xhtml?id=27220&content=PDF). This paper provides a description of the effect of physical-chemical properties of tomatoes on its flavour.
+   
+   * The words 'wine quality analysis portuguese "Vinho Verde"' were pre-appended to the 
+  previously search and the first hit provided this [link](https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=1&ved=2ahUKEwjPgoCVnP3eAhXJk5AKHf9cDbwQFjAAegQIBBAB&url=https%3A%2F%2Farchive.ics.uci.edu%2Fml%2Fdatasets%2FWine%252BQuality&usg=AOvVaw1Q_6pY55safkphipOhAHF1)
+  which lead to the reference at this [link](https://www.sciencedirect.com/science/article/pii/S0167923609001377?via%3Dihub) and
+  the original dataset [here] (https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/). 
+  
+  * The above paper was not publicly available. A search for the name of the paper (*Modeling wine preferences by data mining from physicochemical properties*) resulted on a similar public paper at this [link](http://www.scitepress.org/Papers/2015/55519/55519.pdf). 
+  
+  * This paper titled 'Modeling Wine Preferences from Physicochemical Properties using Fuzzy techniques' contains a comparison of several models of the same dataset and therefore were selected for a detailed analysis the review.
+  
+  * Other results for "Modeling wine preferences by data mining fromphysicochemical  properties.  In  Decision  SupportSystems arxiv" were saved for a second take on bibliography review.
+
+
+### Modeling Wine Preferences from Physicochemical Properties using Fuzzy techniques
+
+From the text it seems that the data from the paper matches the one at hand. To be sure let's compare both summary data:
+
+Paper's:
+
+
+##Download Data:
+
+```{r}
+
+url='https://drive.google.com/file/d/1-oG5-kBt9xQ3Li4PEexpiA9_7RZhRM1f/view'
+```
