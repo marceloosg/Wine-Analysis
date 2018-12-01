@@ -1,6 +1,8 @@
 ---
 title: "Wine analysis"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
 ---
 
 #Objetive:
@@ -80,7 +82,7 @@ at "30/11/2018 21:00 GMT -3, daylight saving" :
    * The words 'wine quality analysis portuguese "Vinho Verde"' were pre-appended to the 
   previously search and the first hit provided this [link](https://www.google.com/url?sa=t&rct=j&q=&esrc=s&source=web&cd=1&ved=2ahUKEwjPgoCVnP3eAhXJk5AKHf9cDbwQFjAAegQIBBAB&url=https%3A%2F%2Farchive.ics.uci.edu%2Fml%2Fdatasets%2FWine%252BQuality&usg=AOvVaw1Q_6pY55safkphipOhAHF1)
   which lead to the reference at this [link](https://www.sciencedirect.com/science/article/pii/S0167923609001377?via%3Dihub) and
-  the original dataset [here] (https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/). 
+  the original dataset [here](https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/). 
   
   * The above paper was not publicly available. A search for the name of the paper (*Modeling wine preferences by data mining from physicochemical properties*) resulted on a similar public paper at this [link](http://www.scitepress.org/Papers/2015/55519/55519.pdf). 
   
@@ -89,21 +91,120 @@ at "30/11/2018 21:00 GMT -3, daylight saving" :
   * Other results for "Modeling wine preferences by data mining fromphysicochemical  properties.  In  Decision  SupportSystems arxiv" were saved for a second take on bibliography review.
 
 
+##Download exercice Data:
+
+```{r}
+library(data.table)
+url='https://drive.google.com/uc?auth_user=0&id=1-oG5-kBt9xQ3Li4PEexpiA9_7RZhRM1f&export=download'
+temp <- tempfile(fileext = ".csv")
+download.file(url,temp)
+wine <- fread(temp, sep = ";", encoding = 'UTF-8')
+print(wine[,lapply(.SD,class),type])
+```
+
+It is strange that the alcohol is classified as character.
+
+```{r}
+names(table(wine[type=="White"]$alcohol)[1:20])
+```
+
+## The data seems to be corrupted. The original dataset looks like: 
+
+```{r,cache=T}
+library(data.table)
+url='https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-white.csv'
+temp <- tempfile(fileext = ".csv")
+download.file(url,temp)
+wine_or <- fread(temp, sep = ";", encoding = 'UTF-8')
+print(wine_or[,lapply(.SD,class),])
+```
+```{r}
+hist(wine_or$alcohol)
+names(table(wine_or$alcohol)[1:20])
+```
+The alcohol levels must be between 8 and 15:
+```{r}
+a=as.numeric(gsub("\\.","",wine$alcohol))
+a=a/10^floor(log(a)/log(10))
+a[a<5]=a[a<5]*10
+wine$alcohol=a
+sum(wine[type=="White"]$alcohol-wine_or$alcohol)
+```
+
+The assumption was correct, after ajusting the data the difference is really small, we should use the original data to avoid
+these errors.
+
+```{r,cache=T}
+library(data.table)
+url='https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv'
+temp <- tempfile(fileext = ".csv")
+download.file(url,temp)
+wine_red <- fread(temp, sep = ";", encoding = 'UTF-8')
+wine_or$type="White"
+wine_red$type="Red"
+wine=rbind(wine_or,wine_red)
+```
+
 ### Modeling Wine Preferences from Physicochemical Properties using Fuzzy techniques
 
-It seems that the data from the paper matches the one at hand. To be sure let's compare both summary data:
+Let's see if the data from the paper matches the one at hand. Let's compare both summary data:
 
 Paper's:
 
 ![Fuzzy](https://github.com/marceloosg/Wine-Analysis/raw/master/pictures/summary.png)
 
-##Download exercice Data:
+```{r,cache=T}
+(t(wine[,lapply(.SD,function(s){list(min(s),max(s),mean(s))}),type]))
+```
 
-```{r}
-library(data.table)
-url='https://drive.google.com/file/d/1-oG5-kBt9xQ3Li4PEexpiA9_7RZhRM1f/view'
-temp <- tempfile(fileext = ".csv")
-download.file(url,temp)
-wine <- fread.csv(temp, sep = ";")
-summary(wine)
+Before trying to reproduce a complex model like FIR. Let's see the properties of our input data to see if there is a simpler
+model we can try first.
+
+### Are our input data Normal?
+
+Applying the jarque.bera.test(x) to all input variables. If the p.value is below 0.05/12, we reject the null normality hypothesis.
+
+```{r,cache=T}
+library(tseries)
+vars=wine[,lapply(.SD, function(s) jarque.bera.test(s)[3]),.SDcols = setdiff(colnames(wine),c("Quality","type")), type]
+mvars=melt(vars,id.vars='type')
+mvars$value=unlist(mvars$value)
+mvars=mvars[,.(pvalue=sum(value)),type]
+mvars
+```
+
+It is a strong case for normality, let's perform a visual inspection on centered and scaled variables
+```{r,cache=T}
+library(ggplot2)
+mwine=melt(wine,id.vars='type')
+mwine[,value:=scale(value),.(type,variable)]
+ggplot(mwine,aes(x=value,fill=type))+geom_histogram()+facet_wrap(~variable)
+```
+
+### What is the correlation between the variables?
+```{r,cache=T}
+m=cbind(wine[type=="White",1:11],scale(wine[type=="White"]$quality))
+names(m)[12]="quality"
+dm=cor(m)
+ggcorr(m,label=T)
+```
+
+## How can we group similar inputs?
+```{r,cache=T}
+plot(hclust(dist(dm)))
+```
+
+
+## How many components we need to group similar inputs?
+```{r,cache=T}
+r=prcomp(wine[,1:12],scale=T)
+sum(cumsum(r$sdev^2/sum(r$sdev^2)) <= 0.9)
+```
+## How different are the means of each input compared to the quality?
+```{r,cache=T}
+q=mwine[variable=="quality"]$value
+mwine=mwine[variable!="quality"]
+mwine$quality=q
+z=mwine[,.(m=mean(value)),.(variable,type,quality)]
+ggplot(z[order(quality,type,variable)][variable=='density'],aes(m,y=quality,color=type))+geom_smooth(span=0.6,se=T)+geom_point()
 ```
