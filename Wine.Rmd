@@ -113,11 +113,15 @@ names(table(wine[type=="White"]$alcohol)[1:20])
 ```{r,cache=T}
 library(data.table)
 url='https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-white.csv'
-temp <- tempfile(fileext = ".csv")
-download.file(url,temp)
+#temp <- tempfile(fileext = ".csv")
+temp='data/winequality-white.csv'
+if(!file.exists(temp)){
+  download.file(url, temp)
+}
 wine_or <- fread(temp, sep = ";", encoding = 'UTF-8')
 print(wine_or[,lapply(.SD,class),])
 ```
+
 ```{r}
 hist(wine_or$alcohol)
 names(table(wine_or$alcohol)[1:20])
@@ -137,8 +141,10 @@ these errors.
 ```{r,cache=T}
 library(data.table)
 url='https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv'
-temp <- tempfile(fileext = ".csv")
-download.file(url,temp)
+temp='data/winequality-red.csv'
+if(!file.exists(temp)){
+  download.file(url, temp)
+}
 wine_red <- fread(temp, sep = ";", encoding = 'UTF-8')
 wine_or$type="White"
 wine_red$type="Red"
@@ -194,7 +200,6 @@ ggcorr(m,label=T)
 plot(hclust(dist(dm)))
 ```
 
-
 ## How many components we need to group similar inputs?
 ```{r,cache=T}
 r=prcomp(wine[,1:12],scale=T)
@@ -203,8 +208,51 @@ sum(cumsum(r$sdev^2/sum(r$sdev^2)) <= 0.9)
 ## How different are the means of each input compared to the quality?
 ```{r,cache=T}
 q=mwine[variable=="quality"]$value
-mwine=mwine[variable!="quality"]
-mwine$quality=q
-z=mwine[,.(m=mean(value)),.(variable,type,quality)]
-ggplot(z[order(quality,type,variable)][variable=='density'],aes(m,y=quality,color=type))+geom_smooth(span=0.6,se=T)+geom_point()
+qmwine=mwine[variable!="quality"]
+qmwine$quality=q
+qmwine=qmwine[,.(mean=mean(value), sm =sd(value),N=.N),.(variable,type,quality)]
+ggplot(qmwine[order(quality,type,variable)],aes(x=mean,y=quality,color=type,size=N,weight=N/sm))+
+  geom_smooth(method="lm",se=T)+geom_point()+facet_grid(variable~type)
+```
+
+
+The lower quality wine (lowest fourth grades) seems to deviate from the linear tendencies. Let's highlight those differences.
+```{r,cache=F}
+ggplot(qmwine[order(quality,type,variable)][quality>-2],aes(x=mean,y=quality,size=N,weight=N/sm))+
+  geom_smooth(method="lm",se=T,aes(color=type))+geom_point(aes(color=factor(quality)),alpha=0.5)+facet_grid(variable~type)
+```
+
+The top two grades also deviates, but differently
+```{r,warning=F}
+qmwine$group = "Standard"
+qmwine[quality< -2]$group = "Low"
+qmwine[quality > 2.5]$group = "High"
+
+ggplot(qmwine[order(quality,type,variable)],aes(x=mean,y=quality,size=N,weight=N/sm))+
+  geom_smooth(data=qmwine[group=="Standard"],method="lm",se=T,aes(linetype=type,group=group))+geom_point(aes(color=group),alpha=0.5)+facet_grid(variable~type)
+```
+
+
+Review:
+It is clear that we have 3 separable regimes, this perception is confirmed by the number of group chosen at the [Fuzzy inductive reasoning](http://www.scitepress.org/Papers/2015/55519/55519.pdf) paper.
+
+The discretization process is a crutial part of the FIR algorithm. Maybe we could use Linear Discriminant Analysis to find the separation points for each input variable. The dimensionality should not be a problem if we use PCA before LDA.
+```{r,warning=F}
+library(caret)
+training=wine[type=="White"]
+quality=c("Lowest", "Low", "MediumLow","Medium","MediumHigh","High" ,"Highest")
+training$group = factor(quality[training$quality-2], levels=quality, ordered=T)
+training=training[,-c("quality","type")]
+set.seed(814) # to have reproducible results
+#training$group=factor(training$group)
+#train_ind=createDataPartition(training$group,p=0.7,list=F,groups = training$group)
+training[,index:=seq(1,.N)]
+train_ind=training[,.(selected=sample(index,0.7*.N)),group]$selected
+training=training[,-c("index")]
+traindata=training[train_ind]
+testdata=training[-train_ind]
+lda=fitLda(traindata)
+predicted=predict(lda,newdata = testdata)
+tested=testdata$group
+table(predicted,tested)
 ```
