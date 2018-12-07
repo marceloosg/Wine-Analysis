@@ -166,6 +166,17 @@ Paper's:
 Before trying to reproduce a complex model like FIR. Let's see the properties of our input data to see if there is a simpler
 model we can try first.
 
+
+## How different are the means of each input compared to the quality?
+```{r,cache=T}
+q=mwine[variable=="quality"]$value
+qmwine=mwine[variable!="quality"]
+qmwine$quality=q
+qmwine=qmwine[,.(mean=mean(value), sm =sd(value),N=.N),.(variable,type,quality)]
+ggplot(qmwine[order(quality,type,variable)],aes(x=mean,y=quality,color=type,size=N,weight=N/sm))+
+  geom_smooth(method="lm",se=T)+geom_point()+facet_grid(variable~type)
+```
+
 ### Are our input data Normal?
 
 Applying the jarque.bera.test(x) to all input variables. If the p.value is below 0.05/12, we reject the null normality hypothesis.
@@ -184,11 +195,14 @@ It is a strong case for normality, let's perform a visual inspection on centered
 library(ggplot2)
 mwine=melt(wine,id.vars='type')
 mwine[,value:=scale(value),.(type,variable)]
-ggplot(mwine,aes(x=value,fill=type))+geom_histogram()+facet_wrap(~variable)
+ggplot(mwine,aes(x=value,fill=type,alpha=ifelse(type=="White",0.5,0.6)))+geom_density()+facet_wrap(~variable)
 ```
+They are somewhat normal, but a closer Inspection may be due for the residual sugar and citric acid.
 
-### What is the correlation between the variables?
+
+### What is the correlation between the variables? (bivariate analysis)
 ```{r,cache=T}
+library(GGally)
 m=cbind(wine[type=="White",1:11],scale(wine[type=="White"]$quality))
 names(m)[12]="quality"
 dm=cor(m)
@@ -200,20 +214,38 @@ ggcorr(m,label=T)
 plot(hclust(dist(dm)))
 ```
 
-## How many components we need to group similar inputs?
+
+
+## Remove colinearity with principal components analysis
 ```{r,cache=T}
-r=prcomp(wine[,1:12],scale=T)
-sum(cumsum(r$sdev^2/sum(r$sdev^2)) <= 0.9)
+r=prcomp(wine[type=="White",1:11],scale=T)
+((r$sdev^2/sum(r$sdev^2))) 
 ```
-## How different are the means of each input compared to the quality?
+
+# define importance by the order of the correlation of the components with the target variable
 ```{r,cache=T}
-q=mwine[variable=="quality"]$value
-qmwine=mwine[variable!="quality"]
-qmwine$quality=q
-qmwine=qmwine[,.(mean=mean(value), sm =sd(value),N=.N),.(variable,type,quality)]
-ggplot(qmwine[order(quality,type,variable)],aes(x=mean,y=quality,color=type,size=N,weight=N/sm))+
-  geom_smooth(method="lm",se=T)+geom_point()+facet_grid(variable~type)
+components=predict(r,newdata=wine[type=="White",1:11])
+correlation=cor(components,wine[type=="White", "quality"])
+importance=as.data.table(correlation,keep.rownames = T)[order(-abs(quality))]
+importance
 ```
+# A quick analysis of variance let us discard components not significant to the regression
+```{r,cache=T}
+pcdata=data.table(components[,importance$rn])
+pcdata$group = as.double(wine[type=="White"]$quality)
+summary(aov(group ~ .,data=pcdata))
+```
+A cross validated regression would soften the impact of outliers in the dataset
+```{r,cache=T}
+source("fit.R")
+
+
+results=fit(pcdata[,-c("PC7","PC6")], 'lm')
+(results$train)
+```
+
+The results are compatible with the Multiple Regression present in the Fuzzy reference.
+
 
 
 The lower quality wine (lowest fourth grades) seems to deviate from the linear tendencies. Let's highlight those differences.
@@ -239,6 +271,7 @@ It is clear that we have 3 separable regimes, this perception is confirmed by th
 The discretization process is a crutial part of the FIR algorithm. Maybe we could use Linear Discriminant Analysis to find the separation points for each input variable. The dimensionality should not be a problem if we use PCA before LDA.
 ```{r,warning=F}
 library(caret)
+library(MASS)
 training=wine[type=="White"]
 quality=c("Lowest", "Low", "MediumLow","Medium","MediumHigh","High" ,"Highest")
 training$group = factor(quality[training$quality-2], levels=quality, ordered=T)
@@ -251,8 +284,29 @@ train_ind=training[,.(selected=sample(index,0.7*.N)),group]$selected
 training=training[,-c("index")]
 traindata=training[train_ind]
 testdata=training[-train_ind]
+source("fitPca.R")
 lda=fitLda(traindata)
 predicted=predict(lda,newdata = testdata)
 tested=testdata$group
 table(predicted,tested)
+sum(predicted==tested)
+predicted=predict(lda,newdata = testdata,type="prob")
+predicted
+data.table(predicted)
+p=data.table(predicted)
+p$index=seq(1:nrow(p))
+melt(p,id.vars = "index")
+mp=melt(p,id.vars = "index")
+mp$variable
+mp$variable[1]
+as.integer(mp$variable[1])
+as.integer(mp$variable[1])
+mp
+mp[,.(y=sum(as.integer(variable)*value)),index]
+reg=mp[,.(y=sum(as.integer(variable)*value)),index]
+testdata
+reg$yt=as.integer(testdata$group)
+reg$prob=
+reg
+reg[,sum(abs(y-yt))/.N]
 ```
