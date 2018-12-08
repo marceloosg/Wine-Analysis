@@ -220,6 +220,7 @@ $(document).ready(function () {
 <div id="download-exercice-data" class="section level2">
 <h2>Download exercice Data:</h2>
 <pre class="r"><code>library(data.table)
+
 url='https://drive.google.com/uc?auth_user=0&amp;id=1-oG5-kBt9xQ3Li4PEexpiA9_7RZhRM1f&amp;export=download'
 temp &lt;- tempfile(fileext = &quot;.csv&quot;)
 download.file(url,temp)
@@ -444,22 +445,55 @@ ggplot(qmwine[order(quality,type,variable)][quality&gt;-2],aes(x=mean,y=quality,
 <div id="lda-classification-and-regression" class="section level3">
 <h3>LDA classification and regression</h3>
 <pre class="r"><code>#training=pcdata
-#quality=c(&quot;Lowest&quot;, &quot;Low&quot;, &quot;MediumLow&quot;,&quot;Medium&quot;,&quot;MediumHigh&quot;,&quot;High&quot; ,&quot;Highest&quot;)
+quality=c(&quot;Lowest&quot;, &quot;Low&quot;, &quot;MediumLow&quot;,&quot;Medium&quot;,&quot;MediumHigh&quot;,&quot;High&quot; ,&quot;Highest&quot;)
 #training$group = factor(quality[training$quality-2], levels=quality, ordered=T)
 #training=training[,-c(&quot;quality&quot;,&quot;type&quot;)]
 #regdata=pcdata
 #regdata$group=as.character(regdata)
 #set.seed(814) # to have reproducible results
-#source(&quot;fit.R&quot;)
-#ldafit=myfit(regdata,'lda')
-#predicted=data.table(predict(ldafit$train,newdata = ldafit$testdata,type=&quot;prob&quot;))</code></pre>
+source(&quot;fit.R&quot;)
+classdata=pcdata[,-c(&quot;PC7&quot;,&quot;PC6&quot;)]
+classdata$group=factor(quality[classdata$group-2]
+                       , levels=quality, ordered=T)
+ldafit=myfit(classdata,'lda')
+#predicted=data.table(predict(ldafit$train,newdata = ldafit$testdata,type=&quot;prob&quot;))
+
+mad=sum(ldafit$test==ldafit$testdata$group)/dim(ldafit$testdata)[1]
+print(mad)</code></pre>
+<pre><code>## [1] 0.5319293</code></pre>
+<pre class="r"><code>table(ldafit$test,ldafit$testdata$group)/dim(ldafit$testdata)[1]</code></pre>
+<pre><code>##             
+##                    Lowest          Low    MediumLow       Medium
+##   Lowest     0.0006793478 0.0000000000 0.0000000000 0.0000000000
+##   Low        0.0000000000 0.0067934783 0.0088315217 0.0047554348
+##   MediumLow  0.0006793478 0.0101902174 0.1474184783 0.0822010870
+##   Medium     0.0027173913 0.0156250000 0.1365489130 0.3233695652
+##   MediumHigh 0.0000000000 0.0006793478 0.0047554348 0.0380434783
+##   High       0.0000000000 0.0000000000 0.0000000000 0.0000000000
+##   Highest    0.0000000000 0.0000000000 0.0000000000 0.0000000000
+##             
+##                MediumHigh         High      Highest
+##   Lowest     0.0000000000 0.0000000000 0.0000000000
+##   Low        0.0000000000 0.0006793478 0.0000000000
+##   MediumLow  0.0088315217 0.0000000000 0.0000000000
+##   Medium     0.1168478261 0.0210597826 0.0006793478
+##   MediumHigh 0.0536684783 0.0142663043 0.0006793478
+##   High       0.0000000000 0.0000000000 0.0000000000
+##   Highest    0.0000000000 0.0000000000 0.0000000000</code></pre>
 </div>
-<div id="next-steps" class="section level3">
-<h3>Next steps</h3>
 </div>
-<div id="to-reproduce-and-improve-the-fir-algorithm-applied-at-modeling-wine-preferences-from-physicochemical-properties-using-fuzzy-inductive-reasoning" class="section level2">
-<h2>To reproduce and improve the FIR algorithm applied at <a href="http://www.scitepress.org/Papers/2015/55519/55519.pdf">“Modeling Wine Preferences from Physicochemical Properties using Fuzzy inductive reasoning”</a></h2>
-<p>Hypothesis to be tested: The discretization process is a crutial part of the FIR algorithm. Maybe we could use Linear Discriminant Analysis to find the separation points for each input variable. The dimensionality should not be a problem if we use PCA before LDA.</p>
+<div id="next-steps" class="section level1">
+<h1>Next steps</h1>
+<ul>
+<li>To reproduce and improve the FIR algorithm applied at <a href="http://www.scitepress.org/Papers/2015/55519/55519.pdf">“Modeling Wine Preferences from Physicochemical Properties using Fuzzy inductive reasoning”</a></li>
+</ul>
+<div id="hypothesis-to-be-tested" class="section level2">
+<h2>Hypothesis to be tested:</h2>
+<ol style="list-style-type: decimal">
+<li>The discretization process is a crutial part of the FIR algorithm.</li>
+<li>Maybe we could use Linear Discriminant Analysis to find the separation points for each input variable.</li>
+<li>The dimensionality should not be a problem if we use PCA before LDA.</li>
+</ol>
 </div>
 </div>
 

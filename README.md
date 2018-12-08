@@ -3,7 +3,7 @@
 a. Como foi a definição da sua estratégia de modelagem?
 
 Separei em 6 etapas:
-	1. Revisão bibliográfica
+	1. Revisão bibliográfica e definição de escopo: (Cada vinho será tratado separadamente, branco e tinto)
 	2. Análise exploratória univariada
 	3. Análise exploratória bivariada
 	4. Remoção de colinearidade (PCA)
