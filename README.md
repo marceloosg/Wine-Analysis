@@ -39,5 +39,6 @@ e. **Quais evidências você possui de que seu modelo é suficientemente bom?**
 	3. Esses parâmetros de sucesso são fácilmente traduzidos em critérios de aceite para aplicações de negócio.
 	4. O sucesso absoluto depende do contexto da aplicação do modelo, o mais importante é ter uma métrica de fácil compreensão.
 
-	O modelo é bom para comparação com outros modelos. Tem a mesma performance de modelos similares na literatura. Mas sua performance é pior se comparado com outros 
-modelos como SVM ou FIR. Em próximas iterações a intenção é aplicar ambos métodos e buscar oportunidades de melhorias na engenharia das variáveis ou hyperparâmetros do modelo.
+	O modelo é bom para comparação com outros modelos. Tem a mesma performance de modelos similares na literatura. 
+	Mas sua performance é pior se comparado com outros modelos como SVM ou FIR. 
+	Em próximas iterações a intenção é aplicar ambos métodos e buscar oportunidades de melhorias na engenharia das variáveis ou hyperparâmetros do modelo.
