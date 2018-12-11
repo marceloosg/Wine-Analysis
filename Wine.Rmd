@@ -272,7 +272,7 @@ mad$train.mae=results$train$results$MAE
 mad$train.mae.sd=results$train$results$MAESD
 mad
 ```
-The results are compatible with the Multiple Regression present at [Modeling Wine Preferences from Physicochemical Properties using Fuzzy inductive reasoning](http://www.scitepress.org/Papers/2015/55519/55519.pdf) and are within expected values for performance within the trained set, e. g. it have not overfitted.
+The results are compatible with the Multiple Regression present at [Modeling Wine Preferences from Physicochemical Properties using Fuzzy inductive reasoning](http://www.scitepress.org/Papers/2015/55519/55519.pdf) and are within expected values for performance within the trained set, e. g. it have not been overfitted.
 
 ## How different are the means of each input compared to the quality?
 ```{r,cache=T}
@@ -312,9 +312,11 @@ classdata$group=factor(quality[classdata$group-2]
 ldafit=myfit(classdata,'lda')
 #predicted=data.table(predict(ldafit$train,newdata = ldafit$testdata,type="prob"))
 
-mad=sum(ldafit$test==ldafit$testdata$group)/dim(ldafit$testdata)[1]
-print(paste('Accuracy',mad))
-table(ldafit$test,ldafit$testdata$group)/dim(ldafit$testdata)[1]
+caret::confusionMatrix(ldafit$train)
+```
+```{r,warning=F, cache=T}
+
+caret::confusionMatrix(table(ldafit$test,ldafit$testdata$group)/dim(ldafit$testdata)[1])
 ```
 
 # Next steps

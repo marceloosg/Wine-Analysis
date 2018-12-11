@@ -432,7 +432,7 @@ mad</code></pre>
 ## 
 ## $train.mae.sd
 ## [1] 0.01043434</code></pre>
-<p>The results are compatible with the Multiple Regression present at <a href="http://www.scitepress.org/Papers/2015/55519/55519.pdf">Modeling Wine Preferences from Physicochemical Properties using Fuzzy inductive reasoning</a> and are within expected values for performance within the trained set, e. g. it have not overfitted.</p>
+<p>The results are compatible with the Multiple Regression present at <a href="http://www.scitepress.org/Papers/2015/55519/55519.pdf">Modeling Wine Preferences from Physicochemical Properties using Fuzzy inductive reasoning</a> and are within expected values for performance within the trained set, e. g. it have not been overfitted.</p>
 <div id="how-different-are-the-means-of-each-input-compared-to-the-quality" class="section level2">
 <h2>How different are the means of each input compared to the quality?</h2>
 <pre class="r"><code>q=mwine[variable==&quot;quality&quot;]$value
@@ -468,11 +468,26 @@ classdata$group=factor(quality[classdata$group-2]
 ldafit=myfit(classdata,'lda')
 #predicted=data.table(predict(ldafit$train,newdata = ldafit$testdata,type=&quot;prob&quot;))
 
-mad=sum(ldafit$test==ldafit$testdata$group)/dim(ldafit$testdata)[1]
-print(paste('Accuracy',mad))</code></pre>
-<pre><code>## [1] &quot;Accuracy 0.531929347826087&quot;</code></pre>
-<pre class="r"><code>table(ldafit$test,ldafit$testdata$group)/dim(ldafit$testdata)[1]</code></pre>
-<pre><code>##             
+caret::confusionMatrix(ldafit$train)</code></pre>
+<pre><code>## Cross-Validated (5 fold, repeated 20 times) Confusion Matrix 
+## 
+## (entries are percentual average cell counts across resamples)
+##  
+##             Reference
+## Prediction   Lowest  Low MediumLow Medium MediumHigh High Highest
+##   Lowest        0.0  0.0       0.0    0.0        0.0  0.0     0.0
+##   Low           0.0  0.7       0.9    0.4        0.0  0.0     0.0
+##   MediumLow     0.1  1.4      14.8    8.0        0.9  0.1     0.0
+##   Medium        0.2  1.2      13.9   32.7       12.1  2.2     0.0
+##   MediumHigh    0.0  0.1       0.2    3.8        5.0  1.3     0.1
+##   High          0.0  0.0       0.0    0.0        0.0  0.0     0.0
+##   Highest       0.0  0.0       0.0    0.0        0.0  0.0     0.0
+##                             
+##  Accuracy (average) : 0.5318</code></pre>
+<pre class="r"><code>caret::confusionMatrix(table(ldafit$test,ldafit$testdata$group)/dim(ldafit$testdata)[1])</code></pre>
+<pre><code>## Confusion Matrix and Statistics
+## 
+##             
 ##                    Lowest          Low    MediumLow       Medium
 ##   Lowest     0.0006793478 0.0000000000 0.0000000000 0.0000000000
 ##   Low        0.0000000000 0.0067934783 0.0088315217 0.0047554348
@@ -489,7 +504,47 @@ print(paste('Accuracy',mad))</code></pre>
 ##   Medium     0.1168478261 0.0210597826 0.0006793478
 ##   MediumHigh 0.0536684783 0.0142663043 0.0006793478
 ##   High       0.0000000000 0.0000000000 0.0000000000
-##   Highest    0.0000000000 0.0000000000 0.0000000000</code></pre>
+##   Highest    0.0000000000 0.0000000000 0.0000000000
+## 
+## Overall Statistics
+##                                   
+##                Accuracy : 0.5319  
+##                  95% CI : (NA, NA)
+##     No Information Rate : NA      
+##     P-Value [Acc &gt; NIR] : NA      
+##                                   
+##                   Kappa : 0.2552  
+##  Mcnemar's Test P-Value : NA      
+## 
+## Statistics by Class:
+## 
+##                      Class: Lowest Class: Low Class: MediumLow
+## Sensitivity              0.1666667   0.204082           0.4954
+## Specificity              1.0000000   0.985242           0.8549
+## Pos Pred Value           1.0000000   0.322581           0.5913
+## Neg Pred Value           0.9966010   0.972935           0.8000
+## Prevalence               0.0040761   0.033288           0.2976
+## Detection Rate           0.0006793   0.006793           0.1474
+## Detection Prevalence     0.0006793   0.021060           0.2493
+## Balanced Accuracy        0.5833333   0.594662           0.6752
+##                      Class: Medium Class: MediumHigh Class: High
+## Sensitivity                 0.7212           0.29924     0.00000
+## Specificity                 0.4680           0.92881     1.00000
+## Pos Pred Value              0.5242           0.47879         NaN
+## Neg Pred Value              0.6738           0.85845     0.96399
+## Prevalence                  0.4484           0.17935     0.03601
+## Detection Rate              0.3234           0.05367     0.00000
+## Detection Prevalence        0.6168           0.11209     0.00000
+## Balanced Accuracy           0.5946           0.61403     0.50000
+##                      Class: Highest
+## Sensitivity                0.000000
+## Specificity                1.000000
+## Pos Pred Value                  NaN
+## Neg Pred Value             0.998641
+## Prevalence                 0.001359
+## Detection Rate             0.000000
+## Detection Prevalence       0.000000
+## Balanced Accuracy          0.500000</code></pre>
 </div>
 </div>
 <div id="next-steps" class="section level1">
