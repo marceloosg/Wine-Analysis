@@ -129,18 +129,9 @@ wine_red <- fread(temp, sep = ";", encoding = 'UTF-8')
 wine_or$type="White"
 wine_red$type="Red"
 wine=rbind(wine_or,wine_red)
-print(wine_or[,lapply(.SD,class),])
+print(wine[,lapply(.SD,class),])
 
 ```
-
-
-## Comparison
-```{r}
-hist(wine_or$alcohol)
-names(table(wine_or$alcohol)[1:20])
-```
-
-
 The alcohol levels must be between 8 and 15:
 ```{r, cache=T}
 a=as.numeric(gsub("\\.","",wine$alcohol))
@@ -152,6 +143,15 @@ sum(wine[type=="White"]$alcohol-wine_or$alcohol)
 
 The assumption was correct, after ajusting the data the difference is really small, we should use the original data to avoid
 these errors.
+
+
+##  Wine alcohol distribuition
+```{r}
+library(ggplot2)
+ggplot(wine,aes(x=alcohol,fill=type))+geom_histogram(position = 'dodge',bins=50)
+```
+
+
 
 
 Let's see if the data from the paper matches the one at hand. Let's compare both summary data:
@@ -170,25 +170,32 @@ model we can try first.
 
 ### Are our input data Normal?
 
-Applying the jarque.bera.test(x) to all input variables. If the p.value is below 0.05/12, we reject the null normality hypothesis.
+Applying the ad.test(x) to all input variables. If the p.value is below 0.05/12, we reject the normality hypothesis for all variables.
 
 ```{r,cache=T}
-library(tseries)
-vars=wine[,lapply(.SD, function(s) jarque.bera.test(s)[3]),.SDcols = setdiff(colnames(wine),c("Quality","type")), type]
+library(nortest)
+vars=wine[,lapply(.SD, function(s) ad.test(s)$p.value),.SDcols = setdiff(colnames(wine),c("Quality","type")), type]
 mvars=melt(vars,id.vars='type')
 mvars$value=unlist(mvars$value)
 mvars=mvars[,.(pvalue=sum(value)),type]
 mvars
 ```
 
-It is a strong case for normality, let's perform a visual inspection on centered and scaled variables
+It is a strong case for deviation from normality, let's perform a visual inspection on centered and scaled variables
+
 ```{r,cache=T}
 library(ggplot2)
 mwine=melt(wine,id.vars='type')
 mwine[,value:=scale(value),.(type,variable)]
-ggplot(mwine,aes(x=value,fill=type,alpha=ifelse(type=="White",0.5,0.6)))+geom_density()+facet_wrap(~variable)
+ggplot(mwine,aes(x=value,fill=type,alpha=ifelse(type=="White",0.5,0.6)))+geom_density()+facet_wrap(~variable)+guides(alpha=F)
 ```
-They are somewhat normal, but a closer Inspection may be due for the residual sugar and citric acid.
+They are somewhat normal like with long tails and high positive skewness, but some variables have a larger deviation from normality. A closer Inspection may be due for the residual sugar, citric acid and quality.
+
+```{r,cache=T}
+
+ggplot(mwine[variable %in% c('citric acid', 'residual sugar', 'quality')],aes(x=value,fill=type,alpha=ifelse(type=="White",0.5,0.6)))+geom_density()+facet_wrap(~variable)+guides(alpha=F)
+```
+The input data may be multi model,
 
 ## Bivariate analysis
 
@@ -206,6 +213,27 @@ ggcorr(m,label=T)
 plot(hclust(dist(dm)))
 ```
 
+
+```{r,cache=T}
+
+ggplot(wine[type=="White",],aes(x=alcohol,fill=quality))+geom_density()+facet_wrap(~quality)
+
+```
+For high quality wines the alcohol levels are pretty high. 
+
+```{r,cache=T}
+
+ggplot(wine[type=="White",],aes(x=density,fill=quality))+geom_density()+facet_wrap(~quality)
+
+```
+The density correlation with quality may be indirect due to the high density x alcohol correlation.
+
+```{r,cache=T}
+
+ggplot(wine[type=="White",],aes(x=`volatile acidity`,fill=quality))+geom_density()+facet_wrap(~quality)
+
+```
+Low quality wines white have a higher volatile acidity.
 
 
 ### Remove colinearity with principal components analysis
@@ -234,8 +262,17 @@ source("fit.R")
 results=myfit(pcdata[,-c("PC7","PC6")], 'lm')
 (results$train)
 ```
-
-The results are compatible with the Multiple Regression present at [Modeling Wine Preferences from Physicochemical Properties using Fuzzy inductive reasoning](http://www.scitepress.org/Papers/2015/55519/55519.pdf).
+```{r,cache=T}
+qqnorm(results$test-results$testdata$group)
+```
+```{r,cache=T}
+mad=list()
+mad$test=sum(abs(results$test-results$testdata$group))/length(results$test)
+mad$train.mae=results$train$results$MAE
+mad$train.mae.sd=results$train$results$MAESD
+mad
+```
+The results are compatible with the Multiple Regression present at [Modeling Wine Preferences from Physicochemical Properties using Fuzzy inductive reasoning](http://www.scitepress.org/Papers/2015/55519/55519.pdf) and are within expected values for performance within the trained set, e. g. it have not overfitted.
 
 ## How different are the means of each input compared to the quality?
 ```{r,cache=T}
@@ -259,8 +296,7 @@ ggplot(qmwine[order(quality,type,variable)],aes(x=mean,y=quality,size=N,weight=N
 ```
 
 The lower quality wine (lowest fourth grades) seems to deviate from the linear tendencies. Let's highlight those differences.
-```
-
+```{r,warning=F, cache=T}
 ggplot(qmwine[order(quality,type,variable)][quality>-2],aes(x=mean,y=quality,size=N,weight=N/sm))+
   geom_smooth(method="lm",se=T,aes(color=type))+geom_point(aes(color=factor(quality)),alpha=0.5)+facet_grid(variable~type)
 ```
@@ -268,13 +304,7 @@ ggplot(qmwine[order(quality,type,variable)][quality>-2],aes(x=mean,y=quality,siz
 
 ### LDA classification and regression
 ```{r,warning=F, cache=T}
-#training=pcdata
 quality=c("Lowest", "Low", "MediumLow","Medium","MediumHigh","High" ,"Highest")
-#training$group = factor(quality[training$quality-2], levels=quality, ordered=T)
-#training=training[,-c("quality","type")]
-#regdata=pcdata
-#regdata$group=as.character(regdata)
-#set.seed(814) # to have reproducible results
 source("fit.R")
 classdata=pcdata[,-c("PC7","PC6")]
 classdata$group=factor(quality[classdata$group-2]
@@ -283,7 +313,7 @@ ldafit=myfit(classdata,'lda')
 #predicted=data.table(predict(ldafit$train,newdata = ldafit$testdata,type="prob"))
 
 mad=sum(ldafit$test==ldafit$testdata$group)/dim(ldafit$testdata)[1]
-print(mad)
+print(paste('Accuracy',mad))
 table(ldafit$test,ldafit$testdata$group)/dim(ldafit$testdata)[1]
 ```
 
