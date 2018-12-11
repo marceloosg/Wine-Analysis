@@ -28,7 +28,7 @@ d. **Qual foi o critério utilizado para validação do modelo?**
 	3. O modelo final é testado nos 30% restantes e é esperado que sua performance fique dentro da margem de erro obtida no treinamento, esse 
 	procedimento reduz drasticamente o risco de enviesar o modelo (overfitting).
 	
-  d. 1.  **Por que escolheu utilizar este método?**
+  a. **Por que escolheu utilizar este método?**
     1. Facilidade de visualização e interpretação. Para o primeiro modelo é essencial que seja fácil de implementar e interpretar.
 
 e. **Quais evidências você possui de que seu modelo é suficientemente bom?**
