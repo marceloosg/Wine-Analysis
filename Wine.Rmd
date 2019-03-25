@@ -95,7 +95,9 @@ at "30/11/2018 21:00 GMT -3, daylight saving" :
 
 ```{r, cache=T}
 library(data.table)
-
+#install.packages("nortest")
+#install.packages("GGally")
+#install.packages("caret")
 url='https://drive.google.com/uc?auth_user=0&id=1-oG5-kBt9xQ3Li4PEexpiA9_7RZhRM1f&export=download'
 temp <- tempfile(fileext = ".csv")
 download.file(url,temp)
@@ -103,7 +105,7 @@ wine <- fread(temp, sep = ";", encoding = 'UTF-8')
 print(wine[,lapply(.SD,class),type])
 ```
 
-It is strange that the alcohol is classified as character.
+t is strange that the alcohol is classified as character.
 
 ```{r , cache=T}
 names(table(wine[type=="White"]$alcohol)[1:20])
@@ -205,32 +207,37 @@ library(GGally)
 m=cbind(wine[type=="White",1:11],scale(wine[type=="White"]$quality))
 names(m)[12]="quality"
 dm=cor(m)
-ggcorr(m,label=T)
+ggcorr(m,label=T,angle=70)
 ```
 
 ## How can we group similar inputs?
 ```{r,cache=T}
+#Let's remove uncorrelated variables
+white=wine[type=="White",1:11][,-"free sulfur dioxide"][,-"citric acid"]
+m=cbind(white,(wine[type=="White"]$quality))
+names(m)[10]="quality"
+dm=cor(m)
 plot(hclust(dist(dm)))
 ```
 
 
 ```{r,cache=T}
 
-ggplot(wine[type=="White",],aes(x=alcohol,fill=quality))+geom_density()+facet_wrap(~quality)
+ggplot(m,aes(x=alcohol,fill=quality))+geom_density()+facet_wrap(~quality)
 
 ```
 For high quality wines the alcohol levels are pretty high. 
 
 ```{r,cache=T}
 
-ggplot(wine[type=="White",],aes(x=density,fill=quality))+geom_density()+facet_wrap(~quality)
+ggplot(m,aes(x=density,fill=quality))+geom_density()+facet_wrap(~quality)+xlim(0.985,1.005)
 
 ```
 The density correlation with quality may be indirect due to the high density x alcohol correlation.
 
 ```{r,cache=T}
 
-ggplot(wine[type=="White",],aes(x=`volatile acidity`,fill=quality))+geom_density()+facet_wrap(~quality)
+ggplot(m,aes(x=`volatile acidity`,fill=quality))+geom_density()+facet_wrap(~quality)+xlim(0,0.8)
 
 ```
 Low quality wines white have a higher volatile acidity.
@@ -238,33 +245,59 @@ Low quality wines white have a higher volatile acidity.
 
 ### Remove colinearity with principal components analysis
 ```{r,cache=T}
-r=prcomp(wine[type=="White",1:11],scale=T)
+r=prcomp(white, scale=T)
 ((r$sdev^2/sum(r$sdev^2))) 
 ```
 
 # define importance by the order of the correlation of the components with the target variable
 ```{r,cache=T}
-components=predict(r,newdata=wine[type=="White",1:11])
+components=predict(r,newdata=white)
 correlation=cor(components,wine[type=="White", "quality"])
 importance=as.data.table(correlation,keep.rownames = T)[order(-abs(quality))]
 importance
 ```
+```{r}
+data.table(r$rotation,keep.rownames = T)[,.(rn,PC1,PC8)]
+```
+```{r}
+tdata=cbind(data.table(components),data.table(quality=m$quality))
+base=tdata[quality==7][1]
+map=function(quality){
+  (as.integer(quality > 6) + (quality > 7))
+}
+cor=function(quality){
+  ifelse(map(quality)==0,"[0-6]",
+                              ifelse(map(quality)==1,"[7]",
+                                     "[8]"))
+}
+ggplot(tdata,aes(x=PC1,y=PC8,
+                 color=cor(quality),
+                 size=quality,
+                 alpha=(as.integer(quality > 6) + (quality == 8))))+
+         geom_point()+
+  geom_point(data=base,aes(x=PC1,y=PC8,color="sample",size=10,alpha=2))+
+    geom_point(data=tdata[quality==9],aes(x=PC1,y=PC8,color="[9]",size=10,alpha=1))+xlim(-5,5)+ylim(-2,2)
+  
+```
+
 # A quick analysis of variance let us discard components not significant to the regression
 ```{r,cache=T}
 pcdata=data.table(components[,importance$rn])
-pcdata$group = as.double(wine[type=="White"]$quality)
+pcdata$group = as.double(m$quality)
 summary(aov(group ~ .,data=pcdata))
 ```
 
 A cross validated regression would soften the impact of outliers in the dataset
 ```{r,cache=T}
 source("fit.R")
-results=myfit(pcdata[,-c("PC7","PC6")], 'lm')
+results=myfit(pcdata, 'lm')
 (results$train)
 ```
+
 ```{r,cache=T}
 qqnorm(results$test-results$testdata$group)
 ```
+
 ```{r,cache=T}
 mad=list()
 mad$test=sum(abs(results$test-results$testdata$group))/length(results$test)
@@ -306,7 +339,7 @@ ggplot(qmwine[order(quality,type,variable)][quality>-2],aes(x=mean,y=quality,siz
 ```{r,warning=F, cache=T}
 quality=c("Lowest", "Low", "MediumLow","Medium","MediumHigh","High" ,"Highest")
 source("fit.R")
-classdata=pcdata[,-c("PC7","PC6")]
+classdata=pcdata
 classdata$group=factor(quality[classdata$group-2]
                        , levels=quality, ordered=T)
 ldafit=myfit(classdata,'lda')
@@ -314,9 +347,65 @@ ldafit=myfit(classdata,'lda')
 
 caret::confusionMatrix(ldafit$train)
 ```
+
 ```{r,warning=F, cache=T}
 
 caret::confusionMatrix(table(ldafit$test,ldafit$testdata$group)/dim(ldafit$testdata)[1])
+```
+```{r}
+#m[quality == 7 | quality == 8 | quality== 9][, lapply(.SD,mean),quality][,c("chlorides","volatile acidity","pH","alcohol")]
+summary(m[,c("chlorides", "volatile acidity","pH","alcohol")])
+
+
+baseline=white[which(m$quality == 7)[1]]
+baseline
+
+#predict(results$train,data.table(basepca))
+library(manipulate)
+change=function(newdata=data.table(baseline),ch,acidity,ph,al,my=0.6,init=T){
+  if(init){
+    newdata$chlorides=ch
+    newdata[["volatile acidity"]]=acidity
+    newdata$pH=ph
+    newdata$alcohol=al}
+  basepca=predict(r,newdata)
+  p=predict(ldafit$train,data.table(basepca),type="prob")
+  p=data.table(prob=t(p),keep.rownames = T)
+  colnames(p)=c("group","prob")
+  if (max(p$prob > 0.6)) my=max(p$prob)
+  p$group=factor(p$group,ordered = T,levels = p$group)
+  list("p"=p,"g"=ggplot(p, aes(x=group,y=prob,fill=prob))+geom_bar(stat="identity")+xlab("Quality")+ylim(0,my)+
+    geom_label(x=2,y=0.4,size=10,color="white",label=paste("pH:",ph,"\n alcohol:",al,"\n volatile acid:",acidity,"\n chlorides:",ch,sep=" ")))
+}
+tseq=seq(0,20)/20
+t=1
+ch=0.20-0.20*t
+acidity=0.36+0.44*t
+ph=3.28+0.54*t
+al=12.7+1.5*t
+change(newdata=m[quality==9][4],ch,acidity,ph,al)
+#    ph=slider(2.72,3.82,step=0.01,initial=3.19),
+#    al=slider(8,14.2,step=0.1,initial=10.5))
+
+#manipulate(
+#  change(ch,acidity,ph,al),
+#    ch=slider(0.01,0.35,step=0.01,initial=0.05),
+#    acidity=slider(0.08,1.1,step=0.01,initial=0.28),
+#    ph=slider(2.72,3.82,step=0.01,initial=3.19),
+#    al=slider(8,14.2,step=0.1,initial=10.5))
+  
+```
+
+```{r}
+ch=0.05
+acidity=0.28
+macidity=1.1
+ph=3.19
+mph=3.82
+al=10.5
+mal=14.2
+change(ch,acidity,ph,al)
+
 ```
 
 # Next steps

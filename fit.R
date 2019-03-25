@@ -28,6 +28,25 @@ myfit=function(training, meth="lda"){
   list("train"=results.train,"test"=results.test,"traindata"=traindata,"testdata"=testdata)
 }
 
+animate=function(){
+  tseq=seq(1,20)/20
+  for(t in tseq){
+    ch=0.20-0.20*t
+    acidity=0.36+0.44*t
+    ph=3.28+0.54*t
+    al=12.7+1.5*t
+    ct=as.character(t*20)
+    if(t*20 < 10){
+      ct=paste(0,ct,sep="")
+    }
+    nome=paste(paste('output',ct,sep=''),'.png',sep='')
+    print(nome)
+    png(nome,width=720,height=720)
+    z=change(newdata=m[quality==9][4],ch,acidity,ph,al)
+    print(z$g)
+    dev.off()    
+  }
+}
 
 validate_regreesion=function(p){
   p$index=seq(1:nrow(p))
